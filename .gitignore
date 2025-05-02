@@ -133,6 +133,7 @@ frontend/yarn-debug.log*
 frontend/yarn-error.log*
 frontend/.next/
 frontend/out/
+frontend/.svelte-kit/
 
 # Backend
 backend/**/*.sqlite
@@ -148,3 +149,6 @@ logs/
 data/
 uploads/
 media/
+
+docs/
+*.sql
