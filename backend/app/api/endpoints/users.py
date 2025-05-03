@@ -1,9 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from typing import List
 
 from ...database.database import get_db
 from ...models.user import User
+from ...models.address import Address
 from ...schemas.user import User as UserSchema, UserUpdate
 from ...services.user_service import update_user
 from ..deps import get_current_active_user, get_current_admin_user
@@ -17,15 +18,28 @@ async def get_users(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_admin_user)  # Chỉ admin mới được xem danh sách
 ):
-    users = db.query(User).offset(skip).limit(limit).all()
+    # Truy vấn users với eager loading addresses
+    users = db.query(User).options(
+        # Load mối quan hệ addresses để tránh N+1 query
+        joinedload(User.addresses)
+    ).offset(skip).limit(limit).all()
+    
     return users
 
 @router.get("/me", response_model=UserSchema)
-async def get_current_user_info(current_user: User = Depends(get_current_active_user)):
+async def get_current_user_info(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
     """
-    Lấy thông tin user hiện tại
+    Lấy thông tin user hiện tại kèm địa chỉ
     """
-    return current_user
+    # Load lại user từ database để đảm bảo có thông tin địa chỉ
+    user = db.query(User).options(
+        joinedload(User.addresses)
+    ).filter(User.id == current_user.id).first()
+    
+    return user
 
 @router.get("/{user_id}", response_model=UserSchema)
 async def get_user(
@@ -40,7 +54,10 @@ async def get_user(
             detail="Không có quyền truy cập thông tin của người dùng khác"
         )
         
-    user = db.query(User).filter(User.id == user_id).first()
+    user = db.query(User).options(
+        joinedload(User.addresses)
+    ).filter(User.id == user_id).first()
+    
     if user is None:
         raise HTTPException(status_code=404, detail="User not found")
     return user
@@ -64,4 +81,9 @@ async def update_user_info(
             detail="Không tìm thấy người dùng để cập nhật"
         )
     
-    return updated_user 
+    # Load lại user để lấy thông tin địa chỉ
+    user = db.query(User).options(
+        joinedload(User.addresses)
+    ).filter(User.id == user_id).first()
+    
+    return user 

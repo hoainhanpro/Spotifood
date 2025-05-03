@@ -1,6 +1,7 @@
 from pydantic import BaseModel, EmailStr
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List
+from .address import Address
 
 class UserBase(BaseModel):
     username: str
@@ -42,6 +43,7 @@ class User(UserBase):
     id: int
     created_at: datetime
     updated_at: datetime
+    addresses: Optional[List[Address]] = []
 
     class Config:
         from_attributes = True 

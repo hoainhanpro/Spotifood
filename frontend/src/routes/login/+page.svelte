@@ -113,23 +113,30 @@
       if (response.access_token) {
         // Lưu token
         token.set(response.access_token);
+        localStorage.setItem('token', response.access_token);
         
-        // Lấy thông tin user từ token nếu cần
+        // Lấy thông tin user từ token
         try {
-          const userInfo = await fetchApi<any>('/api/auth/me', {
+          const userResponse = await fetch('http://localhost:8000/api/v1/auth/me', {
+            method: 'GET',
             headers: {
+              'Content-Type': 'application/json',
               'Authorization': `Bearer ${response.access_token}`
             }
           });
           
-          if (userInfo) {
-            user.set(userInfo);
-            isAuthenticated.set(true);
-            
-            if (rememberMe && typeof window !== 'undefined') {
-              localStorage.setItem('user', JSON.stringify(userInfo));
-              localStorage.setItem('token', response.access_token);
+          if (userResponse.ok) {
+            const userInfo = await userResponse.json();
+            if (userInfo) {
+              user.set(userInfo);
+              isAuthenticated.set(true);
+              
+              if (rememberMe && typeof window !== 'undefined') {
+                localStorage.setItem('user', JSON.stringify(userInfo));
+              }
             }
+          } else {
+            console.error('Lỗi lấy thông tin người dùng:', userResponse.statusText);
           }
         } catch (error) {
           console.error('Lỗi lấy thông tin người dùng:', error);
