@@ -9,7 +9,7 @@ class UserBase(BaseModel):
     full_name: Optional[str] = None
     phone_number: Optional[str] = None
     is_active: bool = True
-    is_admin: bool = False
+    role: str = "customer"
 
 class UserCreate(UserBase):
     password: str
@@ -37,13 +37,17 @@ class UserUpdate(BaseModel):
     full_name: Optional[str] = None
     phone_number: Optional[str] = None
     is_active: Optional[bool] = None
-    is_admin: Optional[bool] = None
+    role: Optional[str] = None
 
 class User(UserBase):
     id: int
     created_at: datetime
     updated_at: datetime
     addresses: Optional[List[Address]] = []
+
+    @property
+    def is_admin(self) -> bool:
+        return self.role == "admin"
 
     class Config:
         from_attributes = True 

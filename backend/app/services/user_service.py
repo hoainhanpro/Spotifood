@@ -42,7 +42,7 @@ def create_user(db: Session, user_create: UserCreate) -> User:
         phone_number=user_create.phone_number,
         hashed_password=hashed_password,
         is_active=user_create.is_active,
-        is_admin=user_create.is_admin
+        role=user_create.role
     )
     
     # Thêm vào database

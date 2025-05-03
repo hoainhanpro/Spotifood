@@ -62,9 +62,42 @@ def get_current_admin_user(current_user: User = Depends(get_current_active_user)
     """
     Kiểm tra user có quyền admin hay không
     """
-    if not current_user.is_admin:
+    if current_user.role != "admin":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Không có quyền truy cập",
+        )
+    return current_user
+
+def get_current_restaurant_user(current_user: User = Depends(get_current_active_user)) -> User:
+    """
+    Kiểm tra user có quyền nhà hàng hay không
+    """
+    if current_user.role != "restaurant":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Chỉ nhà hàng mới có quyền thực hiện thao tác này",
+        )
+    return current_user
+
+def get_current_shipper_user(current_user: User = Depends(get_current_active_user)) -> User:
+    """
+    Kiểm tra user có quyền shipper hay không
+    """
+    if current_user.role != "shipper":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Chỉ người giao hàng mới có quyền thực hiện thao tác này",
+        )
+    return current_user
+
+def get_current_customer_user(current_user: User = Depends(get_current_active_user)) -> User:
+    """
+    Kiểm tra user có quyền khách hàng hay không
+    """
+    if current_user.role != "customer":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Chỉ khách hàng mới có quyền thực hiện thao tác này",
         )
     return current_user 

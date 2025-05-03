@@ -13,9 +13,13 @@ class User(Base):
     full_name = Column(String)
     phone_number = Column(String)
     is_active = Column(Boolean, default=True)
-    is_admin = Column(Boolean, default=False)
+    role = Column(String, default="customer")
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     
     # Relationship với Address
-    addresses = relationship("Address", back_populates="user", cascade="all, delete-orphan") 
+    addresses = relationship("Address", back_populates="user", cascade="all, delete-orphan")
+    
+    @property
+    def is_admin(self):
+        return self.role == "admin" 

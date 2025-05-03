@@ -23,7 +23,7 @@
     id: number;
     email: string;
     full_name?: string;
-    is_admin: boolean;
+    role: string;
     is_active: boolean;
     created_at: string;
     addresses?: Address[];
@@ -46,7 +46,8 @@
   // Form data
   let formData = {
     full_name: '',
-    is_admin: false,
+    email: '',
+    role: 'customer',
     is_active: true
   };
   
@@ -154,7 +155,8 @@
     editingUser.set(user);
     formData = {
       full_name: user.full_name || '',
-      is_admin: user.is_admin,
+      email: user.email,
+      role: user.role,
       is_active: user.is_active
     };
     updateError.set(null);
@@ -195,7 +197,8 @@
       // Đảm bảo gửi đúng schema dựa trên backend
       const updateData = {
         full_name: formData.full_name,
-        is_admin: formData.is_admin,
+        email: formData.email,
+        role: formData.role,
         is_active: formData.is_active
       };
       
@@ -373,8 +376,16 @@
                       
                       <div class="user-meta">
                         <div class="user-id">ID: {user.id}</div>
-                        <div class="user-badge" class:admin={user.is_admin}>
-                          {user.is_admin ? 'Admin' : 'Người dùng'}
+                        <div class="user-badge" class:admin={user.role === 'admin'} class:restaurant={user.role === 'restaurant'} class:shipper={user.role === 'shipper'} class:customer={user.role === 'customer'}>
+                          {#if user.role === 'admin'}
+                            Quản trị viên
+                          {:else if user.role === 'restaurant'}
+                            Nhà hàng
+                          {:else if user.role === 'shipper'}
+                            Người giao hàng
+                          {:else}
+                            Khách hàng
+                          {/if}
                         </div>
                       </div>
                       
@@ -496,10 +507,10 @@
                 type="email" 
                 id="email" 
                 class="form-control" 
-                value={$editingUser.email} 
-                disabled 
+                bind:value={formData.email} 
+                placeholder="Nhập email" 
+                required
               />
-              <small class="form-text text-muted">Email không thể thay đổi</small>
             </div>
             
             <div class="form-group mb-3">
@@ -514,16 +525,18 @@
               />
             </div>
             
-            <div class="form-check form-switch mb-3">
-              <input 
-                class="form-check-input" 
-                type="checkbox" 
-                id="isAdmin" 
-                bind:checked={formData.is_admin}
-              />
-              <label class="form-check-label" for="isAdmin">
-                Quyền admin
-              </label>
+            <div class="form-group mb-3">
+              <label for="role" class="form-label">Vai trò người dùng</label>
+              <select 
+                id="role" 
+                class="form-select" 
+                bind:value={formData.role}
+              >
+                <option value="customer">Khách hàng</option>
+                <option value="restaurant">Nhà hàng</option>
+                <option value="shipper">Người giao hàng</option>
+                <option value="admin">Quản trị viên</option>
+              </select>
             </div>
             
             <div class="form-check form-switch mb-4">
@@ -578,6 +591,9 @@
     --text-light: #ffffff;
     --text-muted: #8c8c9e;
     --admin-color: #ff7c7c;
+    --restaurant-color: #ff9f46;
+    --shipper-color: #46c0ff;
+    --customer-color: #46ff8d;
     --active-color: #00cc66;
     --border-color: #252536;
   }
@@ -744,6 +760,21 @@
   .user-badge.admin {
     background-color: rgba(255, 124, 124, 0.15);
     color: var(--admin-color);
+  }
+  
+  .user-badge.restaurant {
+    background-color: rgba(255, 159, 70, 0.15);
+    color: var(--restaurant-color);
+  }
+  
+  .user-badge.shipper {
+    background-color: rgba(70, 192, 255, 0.15);
+    color: var(--shipper-color);
+  }
+  
+  .user-badge.customer {
+    background-color: rgba(70, 255, 141, 0.15);
+    color: var(--customer-color);
   }
   
   /* User date */
