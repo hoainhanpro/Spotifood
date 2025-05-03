@@ -1,7 +1,7 @@
-from typing import Optional
+from typing import Optional, Dict, Any
 from sqlalchemy.orm import Session
 from ..models.user import User
-from ..schemas.user import UserCreate
+from ..schemas.user import UserCreate, UserUpdate
 from ..core.security import get_password_hash, verify_password
 
 
@@ -58,4 +58,26 @@ def change_user_password(db: Session, user: User, new_password: str) -> User:
     db.add(user)
     db.commit()
     db.refresh(user)
-    return user 
+    return user
+
+
+def update_user(db: Session, user_id: int, user_in: UserUpdate) -> Optional[User]:
+    """
+    Cập nhật thông tin người dùng (dành cho admin)
+    """
+    db_user = get_user_by_id(db, user_id)
+    
+    if not db_user:
+        return None
+    
+    # Chuyển đổi UserUpdate thành dictionary và loại bỏ các giá trị None
+    update_data = user_in.model_dump(exclude_unset=True)
+    
+    # Cập nhật thông tin người dùng
+    for field, value in update_data.items():
+        setattr(db_user, field, value)
+    
+    db.add(db_user)
+    db.commit()
+    db.refresh(db_user)
+    return db_user 

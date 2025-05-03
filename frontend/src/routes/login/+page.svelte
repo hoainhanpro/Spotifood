@@ -1,16 +1,154 @@
+<script lang="ts" context="module">
+  import type { Load } from '@sveltejs/kit';
+
+  export const load: Load = async () => {
+    return {
+      title: 'Đăng nhập',
+      description: 'Đăng nhập vào hệ thống Spotifood'
+    };
+  };
+</script>
+
 <script lang="ts">
   import { goto } from '$app/navigation';
   import { writable } from 'svelte/store';
   import { Mail, Lock } from 'lucide-svelte';
-  import { login, isAuthenticated } from '$lib/services/auth';
   import { onMount } from 'svelte';
+  
+  // Store lưu trữ trạng thái user
+  export const user = writable<any>(null);
+  export const isAuthenticated = writable<boolean>(false);
+  export const token = writable<string | null>(null);
+
+  // API URL
+  const API_URL = 'http://localhost:8000';
+
+  // Hàm fetch API
+  async function fetchApi<T = any>(endpoint: string, options: RequestInit = {}): Promise<T> {
+    const url = `${API_URL}${endpoint}`;
+    
+    const defaultOptions: RequestInit = {
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      credentials: 'include',
+      mode: 'cors',
+    };
+
+    const fetchOptions: RequestInit = {
+      ...defaultOptions,
+      ...options,
+      headers: {
+        ...defaultOptions.headers as Record<string, string>,
+        ...(options.headers || {}) as Record<string, string>,
+      },
+    };
+
+    try {
+      const response = await fetch(url, fetchOptions);
+      
+      // Nếu response không OK, xử lý lỗi
+      if (!response.ok) {
+        // Cố gắng nhận lỗi từ API nếu có
+        try {
+          const errorData = await response.json();
+          throw new Error(errorData.detail || 'Lỗi không xác định');
+        } catch (error) {
+          throw new Error(`Lỗi ${response.status}: ${response.statusText}`);
+        }
+      }
+      
+      // Kiểm tra nếu response rỗng
+      const text = await response.text();
+      return text ? JSON.parse(text) as T : {} as T;
+    } catch (error) {
+      console.error('Lỗi kết nối API:', error);
+      throw error;
+    }
+  }
+  
+  // Kiểm tra từ localStorage nếu đã đăng nhập trước đó
+  if (typeof window !== 'undefined') {
+    const storedToken = localStorage.getItem('token');
+    const storedUser = localStorage.getItem('user');
+    
+    if (storedToken && storedUser) {
+      try {
+        const userData = JSON.parse(storedUser);
+        user.set(userData);
+        token.set(storedToken);
+        isAuthenticated.set(true);
+      } catch (error) {
+        localStorage.removeItem('user');
+        localStorage.removeItem('token');
+      }
+    }
+  }
+  
+  // Interface cho dữ liệu login và response
+  interface LoginCredentials {
+    email: string;
+    password: string;
+    rememberMe?: boolean;
+  }
+  
+  interface AuthResponse {
+    access_token: string;
+    token_type: string;
+  }
+  
+  /**
+   * Đăng nhập người dùng
+   */
+  async function login(credentials: LoginCredentials): Promise<AuthResponse> {
+    try {
+      const { rememberMe, ...loginData } = credentials;
+      
+      const response = await fetchApi<AuthResponse>('/api/auth/login', {
+        method: 'POST',
+        body: JSON.stringify(loginData)
+      });
+      
+      if (response.access_token) {
+        // Lưu token
+        token.set(response.access_token);
+        
+        // Lấy thông tin user từ token nếu cần
+        try {
+          const userInfo = await fetchApi<any>('/api/auth/me', {
+            headers: {
+              'Authorization': `Bearer ${response.access_token}`
+            }
+          });
+          
+          if (userInfo) {
+            user.set(userInfo);
+            isAuthenticated.set(true);
+            
+            if (rememberMe && typeof window !== 'undefined') {
+              localStorage.setItem('user', JSON.stringify(userInfo));
+              localStorage.setItem('token', response.access_token);
+            }
+          }
+        } catch (error) {
+          console.error('Lỗi lấy thông tin người dùng:', error);
+        }
+      }
+      
+      return response;
+    } catch (error) {
+      console.error('Lỗi đăng nhập:', error);
+      throw error;
+    }
+  }
   
   let isLoading = false;
   let errorMessage = '';
   let showConnectionTest = false;
   let showPassword = false;
   
-  const loginData = writable({
+  const loginData = writable<LoginCredentials>({
     email: '',
     password: '',
     rememberMe: false

@@ -4,7 +4,8 @@ from typing import List
 
 from ...database.database import get_db
 from ...models.user import User
-from ...schemas.user import User as UserSchema
+from ...schemas.user import User as UserSchema, UserUpdate
+from ...services.user_service import update_user
 from ..deps import get_current_active_user, get_current_admin_user
 
 router = APIRouter()
@@ -42,4 +43,25 @@ async def get_user(
     user = db.query(User).filter(User.id == user_id).first()
     if user is None:
         raise HTTPException(status_code=404, detail="User not found")
-    return user 
+    return user
+
+@router.put("/{user_id}", response_model=UserSchema)
+async def update_user_info(
+    user_id: int,
+    user_update: UserUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_admin_user)  # Chỉ admin mới có quyền cập nhật
+):
+    """
+    Cập nhật thông tin người dùng (chỉ admin mới có quyền)
+    """
+    # Kiểm tra xem người dùng cần cập nhật có tồn tại không
+    updated_user = update_user(db, user_id, user_update)
+    
+    if not updated_user:
+        raise HTTPException(
+            status_code=404,
+            detail="Không tìm thấy người dùng để cập nhật"
+        )
+    
+    return updated_user 

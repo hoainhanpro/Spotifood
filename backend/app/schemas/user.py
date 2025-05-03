@@ -27,6 +27,17 @@ class UserChangePassword(BaseModel):
     current_password: str
     new_password: str
 
+class UserUpdate(BaseModel):
+    """
+    Schema cho cập nhật thông tin người dùng (dành cho admin)
+    """
+    username: Optional[str] = None
+    email: Optional[EmailStr] = None
+    full_name: Optional[str] = None
+    phone_number: Optional[str] = None
+    is_active: Optional[bool] = None
+    is_admin: Optional[bool] = None
+
 class User(UserBase):
     id: int
     created_at: datetime
