@@ -20,6 +20,13 @@
   export const isAuthenticated = writable<boolean>(false);
   export const token = writable<string | null>(null);
 
+  // Thêm state kiểm tra xác thực để tránh flash UI
+  let isCheckingAuth = true;
+  let isLoading = false;
+  let errorMessage = '';
+  let showConnectionTest = false;
+  let showPassword = false;
+
   // API URL
   const API_URL = 'http://localhost:8000';
 
@@ -98,6 +105,71 @@
     token_type: string;
   }
   
+  // Kiểm tra token hợp lệ từ API
+  async function validateToken(authToken: string): Promise<boolean> {
+    try {
+      const response = await fetch(`${API_URL}/api/users/me`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (response.ok) {
+        const userData = await response.json();
+        // Nếu API trả về user data thì token hợp lệ
+        if (userData) {
+          user.set(userData);
+          isAuthenticated.set(true);
+          return true;
+        }
+      }
+      return false;
+    } catch (error) {
+      console.error('Lỗi xác thực token:', error);
+      return false;
+    }
+  }
+  
+  // Hàm kiểm tra auth và chuyển hướng
+  async function checkAndRedirect() {
+    try {
+      isCheckingAuth = true;
+      
+      // Lấy token từ localStorage
+      const storedToken = localStorage.getItem('token');
+      
+      if (storedToken) {
+        // Kiểm tra token với API
+        const isValid = await validateToken(storedToken);
+        
+        if (isValid) {
+          // Lưu token vào store
+          token.set(storedToken);
+          
+          // Lưu token vào cookie cho server-side
+          document.cookie = `auth_token=${storedToken}; max-age=${60*60*24*7}; path=/; SameSite=Lax`;
+          
+          // Redirect ngay lập tức
+          goto('/dashboard');
+          return; // Dừng hàm ở đây để không set isCheckingAuth = false
+        } else {
+          // Token không hợp lệ - xóa khỏi localStorage
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+          token.set(null);
+          user.set(null);
+          isAuthenticated.set(false);
+        }
+      }
+    } catch (error) {
+      console.error('Lỗi kiểm tra authentication:', error);
+    } finally {
+      isCheckingAuth = false; // Kết thúc kiểm tra, hiển thị UI
+    }
+  }
+  
   /**
    * Đăng nhập người dùng
    */
@@ -114,6 +186,9 @@
         // Lưu token
         token.set(response.access_token);
         localStorage.setItem('token', response.access_token);
+        
+        // Thêm: Lưu vào cookie để server-side có thể đọc
+        document.cookie = `auth_token=${response.access_token}; max-age=${60*60*24*7}; path=/; SameSite=Lax`;
         
         // Lấy thông tin user từ token
         try {
@@ -150,26 +225,15 @@
     }
   }
   
-  let isLoading = false;
-  let errorMessage = '';
-  let showConnectionTest = false;
-  let showPassword = false;
-  
   const loginData = writable<LoginCredentials>({
     email: '',
     password: '',
     rememberMe: false
   });
 
-  // Kiểm tra nếu đã đăng nhập thì chuyển hướng
+  // Kiểm tra nếu đã đăng nhập thì chuyển hướng - đã cải thiện để tránh flash UI
   onMount(() => {
-    const checkLoginStatus = async () => {
-      if ($isAuthenticated) {
-        goto('/dashboard');
-      }
-    };
-    
-    checkLoginStatus();
+    checkAndRedirect();
   });
 
   // Hiện/ẩn mật khẩu
@@ -219,107 +283,116 @@
   };
 </script>
 
-<div class="min-vh-100 d-flex align-items-center justify-content-center bg-dark">
-  <div class="container py-5">
-    <div class="row justify-content-center">
-      <div class="col-12 col-md-8 col-lg-5 col-xl-4">
-        <div class="card bg-dark text-white border-0 shadow-lg rounded-4 animate__animated animate__fadeIn">
-          <!-- Header -->
-          <div class="card-header bg-transparent border-0 text-center py-4">
-            <h3 class="fw-bold mb-2 text-gradient">SPOTIFOOD</h3>
-            <p class="text-light opacity-75 small">Đăng nhập để trải nghiệm</p>
-          </div>
-          
-          <div class="card-body px-4 px-md-5">
-            {#if errorMessage}
-              <div class="alert alert-danger bg-dark-subtle border-danger text-danger" role="alert">
-                <i class="bi bi-exclamation-triangle-fill me-2"></i>
-                <span>{errorMessage}</span>
-              </div>
-            {/if}
+<!-- Hiển thị spinner khi đang kiểm tra auth -->
+{#if isCheckingAuth}
+  <div class="min-vh-100 d-flex align-items-center justify-content-center bg-dark">
+    <div class="spinner-border text-accent" role="status" style="width: 3rem; height: 3rem;">
+      <span class="visually-hidden">Đang tải...</span>
+    </div>
+  </div>
+{:else}
+  <div class="min-vh-100 d-flex align-items-center justify-content-center bg-dark">
+    <div class="container py-5">
+      <div class="row justify-content-center">
+        <div class="col-12 col-md-8 col-lg-5 col-xl-4">
+          <div class="card bg-dark text-white border-0 shadow-lg rounded-4 animate__animated animate__fadeIn">
+            <!-- Header -->
+            <div class="card-header bg-transparent border-0 text-center py-4">
+              <h3 class="fw-bold mb-2 text-gradient">SPOTIFOOD</h3>
+              <p class="text-light opacity-75 small">Đăng nhập để trải nghiệm</p>
+            </div>
+            
+            <div class="card-body px-4 px-md-5">
+              {#if errorMessage}
+                <div class="alert alert-danger bg-dark-subtle border-danger text-danger" role="alert">
+                  <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                  <span>{errorMessage}</span>
+                </div>
+              {/if}
 
-            <form on:submit|preventDefault={handleLogin} class="needs-validation">
-              <!-- Email input -->
-              <div class="form-floating mb-4">
-                <input
-                  type="email"
-                  class="form-control bg-dark-subtle text-white border-0"
-                  id="email"
-                  placeholder="name@example.com"
-                  bind:value={$loginData.email}
-                  required
-                  disabled={isLoading}
-                />
-                <label for="email" class="text-light-purple">Email</label>
-              </div>
-
-              <!-- Password input -->
-              <div class="form-floating mb-4 position-relative">
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  class="form-control bg-dark-subtle text-white border-0"
-                  id="password"
-                  placeholder="Mật khẩu"
-                  bind:value={$loginData.password}
-                  required
-                  disabled={isLoading}
-                />
-                <label for="password" class="text-light-purple">Mật khẩu</label>
-                <button 
-                  type="button"
-                  class="btn btn-link text-light position-absolute end-0 top-50 translate-middle-y border-0 bg-transparent"
-                  style="z-index: 5"
-                  on:click={togglePassword}
-                  aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}>
-                  <i class={`bi ${showPassword ? 'bi-eye-slash' : 'bi-eye'}`}></i>
-                </button>
-              </div>
-
-              <!-- Remember me & Forgot password -->
-              <div class="d-flex justify-content-between mb-4">
-                <div class="form-check">
+              <form on:submit|preventDefault={handleLogin} class="needs-validation">
+                <!-- Email input -->
+                <div class="form-floating mb-4">
                   <input
-                    type="checkbox"
-                    class="form-check-input"
-                    id="rememberMe"
-                    bind:checked={$loginData.rememberMe}
+                    type="email"
+                    class="form-control bg-dark-subtle text-white border-0"
+                    id="email"
+                    placeholder="name@example.com"
+                    bind:value={$loginData.email}
+                    required
                     disabled={isLoading}
                   />
-                  <label class="form-check-label text-light opacity-75 small" for="rememberMe">Nhớ mật khẩu</label>
+                  <label for="email" class="text-light-purple">Email</label>
                 </div>
-                <a href="/forgot-password" class="text-decoration-none small text-accent">Quên mật khẩu?</a>
-              </div>
 
-              <!-- Submit button -->
-              <div class="d-grid gap-2 mb-4">
-                <button 
-                  type="submit" 
-                  class="btn btn-gradient btn-lg border-0 rounded-3"
-                  disabled={isLoading}
-                >
-                  {#if isLoading}
-                    <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                    Đang xử lý...
-                  {:else}
-                    Đăng nhập
-                  {/if}
-                </button>
-              </div>
-            </form>
-          </div>
-          
-          <!-- Footer -->
-          <div class="card-footer bg-transparent border-0 text-center py-4">
-            <p class="mb-0 text-light opacity-75 small">
-              Chưa có tài khoản? 
-              <a href="/register" class="text-decoration-none text-accent fw-medium">Đăng ký ngay</a>
-            </p>
+                <!-- Password input -->
+                <div class="form-floating mb-4 position-relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    class="form-control bg-dark-subtle text-white border-0"
+                    id="password"
+                    placeholder="Mật khẩu"
+                    bind:value={$loginData.password}
+                    required
+                    disabled={isLoading}
+                  />
+                  <label for="password" class="text-light-purple">Mật khẩu</label>
+                  <button 
+                    type="button"
+                    class="btn btn-link text-light position-absolute end-0 top-50 translate-middle-y border-0 bg-transparent"
+                    style="z-index: 5"
+                    on:click={togglePassword}
+                    aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}>
+                    <i class={`bi ${showPassword ? 'bi-eye-slash' : 'bi-eye'}`}></i>
+                  </button>
+                </div>
+
+                <!-- Remember me & Forgot password -->
+                <div class="d-flex justify-content-between mb-4">
+                  <div class="form-check">
+                    <input
+                      type="checkbox"
+                      class="form-check-input"
+                      id="rememberMe"
+                      bind:checked={$loginData.rememberMe}
+                      disabled={isLoading}
+                    />
+                    <label class="form-check-label text-light opacity-75 small" for="rememberMe">Nhớ mật khẩu</label>
+                  </div>
+                  <a href="/forgot-password" class="text-decoration-none small text-accent">Quên mật khẩu?</a>
+                </div>
+
+                <!-- Submit button -->
+                <div class="d-grid gap-2 mb-4">
+                  <button 
+                    type="submit" 
+                    class="btn btn-gradient btn-lg border-0 rounded-3"
+                    disabled={isLoading}
+                  >
+                    {#if isLoading}
+                      <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                      Đang xử lý...
+                    {:else}
+                      Đăng nhập
+                    {/if}
+                  </button>
+                </div>
+              </form>
+            </div>
+            
+            <!-- Footer -->
+            <div class="card-footer bg-transparent border-0 text-center py-4">
+              <p class="mb-0 text-light opacity-75 small">
+                Chưa có tài khoản? 
+                <a href="/register" class="text-decoration-none text-accent fw-medium">Đăng ký ngay</a>
+              </p>
+            </div>
           </div>
         </div>
       </div>
     </div>
   </div>
-</div>
+{/if}
 
 <style>
   :global(body) {

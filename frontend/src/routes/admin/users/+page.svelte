@@ -35,6 +35,7 @@
   const error = writable<string | null>(null);
   const sortDirection = writable<'asc' | 'desc'>('asc');
   const searchQuery = writable<string>('');
+  const selectedRole = writable<string>('all');
   
   // Modal và form state
   const editingUser = writable<User | null>(null);
@@ -87,12 +88,17 @@
   }
   
   /**
-   * Lọc user theo thanh tìm kiếm
+   * Lọc user theo thanh tìm kiếm và role
    */
   $: filteredUsers = $users.filter(user => {
     const query = $searchQuery.toLowerCase();
-    return user.email.toLowerCase().includes(query) || 
+    const matchesSearch = user.email.toLowerCase().includes(query) || 
            (user.full_name?.toLowerCase().includes(query) || false);
+    
+    // Lọc theo role
+    const matchesRole = $selectedRole === 'all' || user.role === $selectedRole;
+    
+    return matchesSearch && matchesRole;
   });
   
   /**
@@ -316,6 +322,21 @@
                   placeholder="Tìm kiếm..."
                   bind:value={$searchQuery}
                 />
+              </div>
+              
+              <!-- Lọc theo role -->
+              <div class="role-filter">
+                <select 
+                  class="form-select custom-select" 
+                  bind:value={$selectedRole}
+                  aria-label="Lọc theo vai trò"
+                >
+                  <option value="all">Tất cả vai trò</option>
+                  <option value="admin">Quản trị viên</option>
+                  <option value="restaurant">Nhà hàng</option>
+                  <option value="shipper">Người giao hàng</option>
+                  <option value="customer">Khách hàng</option>
+                </select>
               </div>
               
               <!-- Nút sắp xếp -->
@@ -987,11 +1008,6 @@
     font-weight: 500;
   }
 
-  .form-text {
-    color: var(--text-muted);
-    font-size: 0.8rem;
-  }
-
   .form-check-input {
     background-color: rgba(255, 255, 255, 0.1);
     border-color: rgba(255, 255, 255, 0.2);
@@ -1072,5 +1088,33 @@
     .text-gradient {
       font-size: 1.75rem;
     }
+  }
+
+  /* Role filter dropdown */
+  .role-filter {
+    width: 100%;
+    max-width: 200px;
+  }
+  
+  .custom-select {
+    background-color: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: var(--text-light);
+    padding: 10px 15px;
+    border-radius: 8px;
+    transition: all 0.3s;
+    appearance: auto;
+  }
+  
+  .custom-select:focus {
+    outline: none;
+    background-color: rgba(255, 255, 255, 0.08);
+    border-color: rgba(138, 125, 253, 0.3);
+    box-shadow: 0 0 0 2px rgba(138, 125, 253, 0.1);
+  }
+  
+  .custom-select option {
+    background-color: var(--card-bg);
+    color: var(--text-light);
   }
 </style> 
