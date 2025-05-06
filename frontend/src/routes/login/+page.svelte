@@ -117,7 +117,7 @@
         
         // Lấy thông tin user từ token
         try {
-          const userResponse = await fetch('http://localhost:8000/api/v1/auth/me', {
+          const userResponse = await fetch('http://localhost:8000/api/users/me', {
             method: 'GET',
             headers: {
               'Content-Type': 'application/json',
